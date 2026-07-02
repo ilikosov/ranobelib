@@ -151,7 +151,7 @@ func (c *Client) GetBookInfo(slug string) (model.BookInfo, error) {
 			Authors []struct {
 				Name string `json:"name"`
 			} `json:"authors"`
-			Summary string `json:"summary"`
+			Summary json.RawMessage `json:"summary"`
 		} `json:"data"`
 	}
 
@@ -167,7 +167,7 @@ func (c *Client) GetBookInfo(slug string) (model.BookInfo, error) {
 	info := model.BookInfo{
 		Title:       payload.Data.RusName,
 		CoverURL:    payload.Data.Cover.Default,
-		Description: payload.Data.Summary,
+		Description: extractSummaryText(payload.Data.Summary),
 	}
 	if info.Title == "" {
 		info.Title = payload.Data.Name
@@ -227,6 +227,37 @@ func (c *Client) GetChapterContent(slug string, ch model.Chapter) (model.Chapter
 		return model.ChapterContent{}, fmt.Errorf("разбор содержимого главы: %w", err)
 	}
 	return payload.Data, nil
+}
+
+// extractSummaryText извлекает текстовое описание из summary API-ответа.
+// summary может быть строкой, ProseMirror-документом или null.
+func extractSummaryText(raw json.RawMessage) string {
+	if len(raw) == 0 || string(raw) == "null" {
+		return ""
+	}
+	var s string
+	if err := json.Unmarshal(raw, &s); err == nil {
+		return s
+	}
+	var doc struct {
+		Content []struct {
+			Content []struct {
+				Text string `json:"text"`
+			} `json:"content"`
+		} `json:"content"`
+	}
+	if err := json.Unmarshal(raw, &doc); err == nil {
+		var parts []string
+		for _, block := range doc.Content {
+			for _, inline := range block.Content {
+				if inline.Text != "" {
+					parts = append(parts, inline.Text)
+				}
+			}
+		}
+		return strings.Join(parts, " ")
+	}
+	return ""
 }
 
 // SiteURL возвращает базовый адрес сайта для абсолютизации
