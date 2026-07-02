@@ -1,6 +1,6 @@
 # Скачанные книги и прогресс загрузки
-books/*.epub
-progress/
+/books/*.epub
+/progress/
 
 # Бинарники
 ranobelib
