@@ -39,6 +39,15 @@ func TestSelectVolumesAll(t *testing.T) {
 	}
 }
 
+func TestSelectVolumesInvalidImageChoiceMeansNoImages(t *testing.T) {
+	// 1 = все тома; 1 = один файл; «x» — некорректный ввод → без изображений.
+	c, _ := run("1\n1\nx\n")
+	sel := c.SelectVolumes(makeChapters())
+	if sel.Images != model.ImagesNone {
+		t.Errorf("sel = %+v", sel)
+	}
+}
+
 func TestSelectVolumesCoverOnly(t *testing.T) {
 	// 1 = все тома; 1 = один файл; 2 = только обложка.
 	c, _ := run("1\n1\n2\n")
