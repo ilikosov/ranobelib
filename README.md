@@ -72,6 +72,22 @@ internal/epub         — сборка EPUB (go-shiori/go-epub), встраив�
 internal/cli          — интерактивные меню на русском
 ```
 
+## Релизы
+
+Готовые бинарники для Linux, Windows и macOS публикуются на странице
+[Releases](https://github.com/ilikosov/ranobelib/releases) — скачайте архив
+под свою платформу, распакуйте и запустите `ranobelib`.
+
+Релиз выпускается автоматически при пуше тега вида `v*`:
+
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+CI (тесты, `go vet`, проверка форматирования) запускается на каждый push
+и pull request.
+
 ## Тесты
 
 ```bash
