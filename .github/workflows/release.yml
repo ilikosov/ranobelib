@@ -32,15 +32,17 @@ jobs:
             GOARCH="${target#*/}"
             export GOOS GOARCH
             bin="ranobelib"
-            [ "$GOOS" = "windows" ] && bin="ranobelib.exe"
+            ext=""
+            [ "$GOOS" = "windows" ] && { bin="ranobelib.exe"; ext=".exe"; }
             go build -trimpath -ldflags "-s -w" -o "$bin" .
             name="ranobelib_${version}_${GOOS}_${GOARCH}"
+            # Архив с README и отдельный бинарник для прямого скачивания.
             if [ "$GOOS" = "windows" ]; then
               zip -q "dist/${name}.zip" "$bin" README.md
             else
               tar -czf "dist/${name}.tar.gz" "$bin" README.md
             fi
-            rm "$bin"
+            mv "$bin" "dist/${name}${ext}"
           done
           ls -l dist/
 

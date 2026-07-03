@@ -75,8 +75,9 @@ internal/cli          — интерактивные меню на русско�
 ## Релизы
 
 Готовые бинарники для Linux, Windows и macOS публикуются на странице
-[Releases](https://github.com/ilikosov/ranobelib/releases) — скачайте архив
-под свою платформу, распакуйте и запустите `ranobelib`.
+[Releases](https://github.com/ilikosov/ranobelib/releases) в двух видах:
+отдельный исполняемый файл (скачал — и запускай) и архив `tar.gz`/`zip`
+с бинарником и README.
 
 Релиз выпускается автоматически при пуше тега вида `v*`:
 
