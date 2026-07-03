@@ -163,9 +163,15 @@ func (c *CLI) SelectVolumes(chapters []model.Chapter) book.Selection {
 
 	c.printf("\nВключить изображения?")
 	c.printf("1. С изображениями (при ошибках сети возможен fallback без изображений)")
-	c.printf("2. Без изображений (стабильно и быстро)")
-	if c.prompt("Ваш выбор (1-2): ") == "2" {
-		sel.NoImages = true
+	c.printf("2. Только обложка (изображения глав не скачиваются)")
+	c.printf("3. Без изображений (стабильно и быстро)")
+	switch c.prompt("Ваш выбор (1-3): ") {
+	case "2":
+		sel.Images = model.ImagesCoverOnly
+	case "3":
+		sel.Images = model.ImagesNone
+	default:
+		sel.Images = model.ImagesAll
 	}
 
 	return sel

@@ -44,11 +44,12 @@ func (f *apiFetcher) IsRateLimited(err error) bool {
 
 func main() {
 	var (
-		flagURL      = flag.String("url", "", "URL книги на ranobelib.me (неинтерактивный режим)")
-		flagVolumes  = flag.String("volumes", "", "тома для загрузки: «1,3» или «1-3» (по умолчанию все)")
-		flagFirst    = flag.Int("first", 0, "скачать только первые N глав (тестовый режим)")
-		flagNoImages = flag.Bool("no-images", false, "собирать EPUB без изображений")
-		flagSplit    = flag.Bool("split", false, "сохранять каждый том отдельным EPUB-файлом")
+		flagURL       = flag.String("url", "", "URL книги на ranobelib.me (неинтерактивный режим)")
+		flagVolumes   = flag.String("volumes", "", "тома для загрузки: «1,3» или «1-3» (по умолчанию все)")
+		flagFirst     = flag.Int("first", 0, "скачать только первые N глав (тестовый режим)")
+		flagNoImages  = flag.Bool("no-images", false, "собирать EPUB без изображений")
+		flagCoverOnly = flag.Bool("cover-only", false, "скачивать только обложку, без изображений глав")
+		flagSplit     = flag.Bool("split", false, "сохранять каждый том отдельным EPUB-файлом")
 	)
 	flag.Parse()
 
@@ -119,7 +120,13 @@ func main() {
 	if interactive {
 		sel = ui.SelectVolumes(allChapters)
 	} else {
-		sel = book.Selection{FirstN: *flagFirst, NoImages: *flagNoImages, VolumeByVolume: *flagSplit}
+		sel = book.Selection{FirstN: *flagFirst, VolumeByVolume: *flagSplit}
+		switch {
+		case *flagNoImages:
+			sel.Images = model.ImagesNone
+		case *flagCoverOnly:
+			sel.Images = model.ImagesCoverOnly
+		}
 		if *flagVolumes != "" {
 			sel.Volumes, err = parseVolumesFlag(*flagVolumes)
 			if err != nil {
@@ -134,9 +141,12 @@ func main() {
 	} else {
 		logf("📚 Режим: один файл")
 	}
-	if sel.NoImages {
+	switch sel.Images {
+	case model.ImagesNone:
 		logf("🖼️ Изображения: БЕЗ изображений (стабильно)")
-	} else {
+	case model.ImagesCoverOnly:
+		logf("🖼️ Изображения: только обложка")
+	default:
 		logf("🖼️ Изображения: с изображениями (fallback при ошибках)")
 	}
 	logf("==============================")
@@ -208,7 +218,7 @@ func runSingleFile(ui *cli.CLI, d *book.Downloader, gen *epub.Generator, store *
 
 	outputName := book.OutputFileName(bookID, sel)
 	outputPath := filepath.Join(booksDir, outputName+".epub")
-	if !generateWithFallback(ui, gen, info, res.Content, outputPath, sel.NoImages) {
+	if !generateWithFallback(ui, gen, info, res.Content, outputPath, sel.Images) {
 		return
 	}
 
@@ -249,7 +259,7 @@ func runVolumeByVolume(ui *cli.CLI, d *book.Downloader, gen *epub.Generator, sto
 		volInfo := info
 		volInfo.Title = fmt.Sprintf("%s. Том %d", info.Title, vol)
 		outputPath := filepath.Join(booksDir, fmt.Sprintf("%s_том_%d.epub", bookID, vol))
-		if !generateWithFallback(ui, gen, volInfo, res.Content, outputPath, sel.NoImages) {
+		if !generateWithFallback(ui, gen, volInfo, res.Content, outputPath, sel.Images) {
 			continue
 		}
 		created = append(created, outputPath)
@@ -276,13 +286,16 @@ func runVolumeByVolume(ui *cli.CLI, d *book.Downloader, gen *epub.Generator, sto
 // generateWithFallback собирает EPUB; при сетевой ошибке пробует ещё раз
 // без изображений (как оригинальный парсер).
 func generateWithFallback(ui *cli.CLI, gen *epub.Generator, info model.BookInfo,
-	chapters []model.DownloadedChapter, outputPath string, noImages bool) bool {
+	chapters []model.DownloadedChapter, outputPath string, mode model.ImageMode) bool {
 
 	ui.Printf("\nГенерация книги %s...", filepath.Base(outputPath))
-	if noImages {
+	switch mode {
+	case model.ImagesNone:
 		ui.Printf("🚫 Создаём EPUB БЕЗ изображений (выбрано пользователем)")
+	case model.ImagesCoverOnly:
+		ui.Printf("🖼️ Режим «только обложка»: изображения глав не скачиваются")
 	}
-	err := gen.Generate(info, chapters, outputPath, noImages)
+	err := gen.Generate(info, chapters, outputPath, mode)
 	if err == nil {
 		ui.Printf("\n✅ Книга успешно создана!")
 		ui.Printf("📂 Путь к файлу: %s", outputPath)
@@ -290,11 +303,11 @@ func generateWithFallback(ui *cli.CLI, gen *epub.Generator, info model.BookInfo,
 		return true
 	}
 
-	if !noImages && isNetworkError(err) {
+	if mode != model.ImagesNone && isNetworkError(err) {
 		ui.Printf("⚠️ Ошибка сети при генерации EPUB: %v", err)
 		ui.Printf("🔄 Пробуем создать EPUB без изображений...")
 		fallbackPath := strings.TrimSuffix(outputPath, ".epub") + "_без_изображений.epub"
-		if err := gen.Generate(info, chapters, fallbackPath, true); err == nil {
+		if err := gen.Generate(info, chapters, fallbackPath, model.ImagesNone); err == nil {
 			ui.Printf("\n✅ Книга успешно создана БЕЗ ИЗОБРАЖЕНИЙ!")
 			ui.Printf("📂 Путь к файлу: %s", fallbackPath)
 			return true

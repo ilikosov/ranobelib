@@ -49,7 +49,8 @@ func testBook(srv *httptest.Server) (model.BookInfo, []model.DownloadedChapter) 
 	return info, chapters
 }
 
-// readEpub возвращает имена файлов внутри EPUB и содержимое глав.
+// readEpub возвращает имена файлов внутри EPUB и содержимое глав
+// (только chapter_*.xhtml — служебную страницу обложки не учитываем).
 func readEpub(t *testing.T, path string) (names []string, chaptersText string) {
 	t.Helper()
 	zr, err := zip.OpenReader(path)
@@ -60,7 +61,7 @@ func readEpub(t *testing.T, path string) (names []string, chaptersText string) {
 	var sb strings.Builder
 	for _, f := range zr.File {
 		names = append(names, f.Name)
-		if strings.HasSuffix(f.Name, ".xhtml") {
+		if strings.HasPrefix(filepath.Base(f.Name), "chapter_") && strings.HasSuffix(f.Name, ".xhtml") {
 			rc, err := f.Open()
 			if err != nil {
 				t.Fatal(err)
@@ -81,7 +82,7 @@ func TestGenerateWithImages(t *testing.T) {
 	gen.HTTP = srv.Client()
 
 	out := filepath.Join(t.TempDir(), "book.epub")
-	if err := gen.Generate(info, chapters, out, false); err != nil {
+	if err := gen.Generate(info, chapters, out, model.ImagesAll); err != nil {
 		t.Fatal(err)
 	}
 
@@ -109,16 +110,45 @@ func TestGenerateNoImages(t *testing.T) {
 	gen.HTTP = srv.Client()
 
 	out := filepath.Join(t.TempDir(), "book.epub")
-	if err := gen.Generate(info, chapters, out, true); err != nil {
+	if err := gen.Generate(info, chapters, out, model.ImagesNone); err != nil {
 		t.Fatal(err)
 	}
 
-	_, text := readEpub(t, out)
+	names, text := readEpub(t, out)
 	if strings.Contains(text, "<img") {
 		t.Errorf("в режиме без изображений остались <img>:\n%s", text)
 	}
 	if !strings.Contains(text, "Первая") {
 		t.Errorf("текст потерян:\n%s", text)
+	}
+	if strings.Contains(strings.Join(names, "\n"), "cover") {
+		t.Errorf("в режиме без изображений не должно быть обложки:\n%s", strings.Join(names, "\n"))
+	}
+}
+
+func TestGenerateCoverOnly(t *testing.T) {
+	srv := imageServer(t)
+	info, chapters := testBook(srv)
+	gen := NewGenerator("")
+	gen.HTTP = srv.Client()
+
+	out := filepath.Join(t.TempDir(), "book.epub")
+	if err := gen.Generate(info, chapters, out, model.ImagesCoverOnly); err != nil {
+		t.Fatal(err)
+	}
+
+	names, text := readEpub(t, out)
+	if !strings.Contains(strings.Join(names, "\n"), "cover") {
+		t.Errorf("обложка не встроена:\n%s", strings.Join(names, "\n"))
+	}
+	if strings.Contains(text, "<img") {
+		t.Errorf("изображения глав должны быть вырезаны:\n%s", text)
+	}
+	if !strings.Contains(text, "изображение удалено") {
+		t.Errorf("нет плейсхолдера вместо изображений глав:\n%s", text)
+	}
+	if !strings.Contains(text, "Первая") || !strings.Contains(text, "Вторая") {
+		t.Errorf("текст глав потерян:\n%s", text)
 	}
 }
 
@@ -130,7 +160,7 @@ func TestGenerateCoverFailureIsNotFatal(t *testing.T) {
 	gen.HTTP = srv.Client()
 
 	out := filepath.Join(t.TempDir(), "book.epub")
-	if err := gen.Generate(info, chapters, out, false); err != nil {
+	if err := gen.Generate(info, chapters, out, model.ImagesAll); err != nil {
 		t.Fatalf("недоступная обложка не должна прерывать сборку: %v", err)
 	}
 }

@@ -15,10 +15,10 @@ import (
 
 // Selection — выбор пользователя: какие главы качать и в каком режиме.
 type Selection struct {
-	Volumes        []int // конкретные тома; пусто — все тома
-	FirstN         int   // >0 — только первые N глав (тестовый режим)
-	VolumeByVolume bool  // сохранять каждый том отдельным EPUB
-	NoImages       bool  // собирать EPUB без изображений
+	Volumes        []int           // конкретные тома; пусто — все тома
+	FirstN         int             // >0 — только первые N глав (тестовый режим)
+	VolumeByVolume bool            // сохранять каждый том отдельным EPUB
+	Images         model.ImageMode // что делать с изображениями
 }
 
 // VolumeNumber возвращает номер тома главы (0, если распарсить не удалось).

@@ -34,19 +34,28 @@ func TestSelectVolumesAll(t *testing.T) {
 	// 1 = все тома; 1 = один файл; 1 = с изображениями.
 	c, _ := run("1\n1\n1\n")
 	sel := c.SelectVolumes(makeChapters())
-	if len(sel.Volumes) != 0 || sel.FirstN != 0 || sel.VolumeByVolume || sel.NoImages {
+	if len(sel.Volumes) != 0 || sel.FirstN != 0 || sel.VolumeByVolume || sel.Images != model.ImagesAll {
+		t.Errorf("sel = %+v", sel)
+	}
+}
+
+func TestSelectVolumesCoverOnly(t *testing.T) {
+	// 1 = все тома; 1 = один файл; 2 = только обложка.
+	c, _ := run("1\n1\n2\n")
+	sel := c.SelectVolumes(makeChapters())
+	if sel.Images != model.ImagesCoverOnly {
 		t.Errorf("sel = %+v", sel)
 	}
 }
 
 func TestSelectVolumesSpecificSplitNoImages(t *testing.T) {
-	// 2 = конкретные тома; «3,1»; 2 = тома отдельно; 2 = без изображений.
-	c, _ := run("2\n3,1\n2\n2\n")
+	// 2 = конкретные тома; «3,1»; 2 = тома отдельно; 3 = без изображений.
+	c, _ := run("2\n3,1\n2\n3\n")
 	sel := c.SelectVolumes(makeChapters())
 	if fmt.Sprint(sel.Volumes) != "[1 3]" {
 		t.Errorf("Volumes = %v", sel.Volumes)
 	}
-	if !sel.VolumeByVolume || !sel.NoImages {
+	if !sel.VolumeByVolume || sel.Images != model.ImagesNone {
 		t.Errorf("sel = %+v", sel)
 	}
 }

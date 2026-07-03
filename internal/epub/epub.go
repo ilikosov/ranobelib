@@ -54,8 +54,9 @@ func (g *Generator) logf(format string, args ...any) {
 }
 
 // Generate собирает EPUB из глав и записывает его в outputPath.
-// При noImages все изображения (включая обложку) вырезаются.
-func (g *Generator) Generate(info model.BookInfo, chapters []model.DownloadedChapter, outputPath string, noImages bool) error {
+// Режим mode задаёт работу с изображениями: все, только обложка
+// или совсем без изображений.
+func (g *Generator) Generate(info model.BookInfo, chapters []model.DownloadedChapter, outputPath string, mode model.ImageMode) error {
 	e, err := goepub.NewEpub(info.Title)
 	if err != nil {
 		return fmt.Errorf("создание EPUB: %w", err)
@@ -72,7 +73,8 @@ func (g *Generator) Generate(info model.BookInfo, chapters []model.DownloadedCha
 	}
 	defer os.RemoveAll(tmpDir)
 
-	if !noImages && info.CoverURL != "" {
+	if mode != model.ImagesNone && info.CoverURL != "" {
+		g.logf("🖼️ Скачивание обложки...")
 		if err := g.addCover(e, info.CoverURL, tmpDir); err != nil {
 			g.logf("⚠️ Не удалось добавить обложку: %v", err)
 		}
@@ -81,10 +83,10 @@ func (g *Generator) Generate(info model.BookInfo, chapters []model.DownloadedCha
 	imgIndex := 0
 	for i, ch := range chapters {
 		body := ch.Data
-		if noImages {
-			body = content.RemoveImages(body)
-		} else {
+		if mode == model.ImagesAll {
 			body = g.embedImages(e, body, tmpDir, &imgIndex)
+		} else {
+			body = content.RemoveImages(body)
 		}
 		body = fixVoidTags(body)
 		section := fmt.Sprintf("<h2>%s</h2>\n%s", html.EscapeString(ch.Title), body)

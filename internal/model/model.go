@@ -3,6 +3,18 @@ package model
 
 import "encoding/json"
 
+// ImageMode — что делать с изображениями при сборке EPUB.
+type ImageMode int
+
+const (
+	// ImagesAll — встраивать обложку и все изображения глав.
+	ImagesAll ImageMode = iota
+	// ImagesCoverOnly — скачивать только обложку, изображения глав вырезать.
+	ImagesCoverOnly
+	// ImagesNone — собирать книгу совсем без изображений.
+	ImagesNone
+)
+
 // BookInfo — метаданные книги с ranobelib.me.
 type BookInfo struct {
 	Title       string // название (rus_name, если есть, иначе name)
