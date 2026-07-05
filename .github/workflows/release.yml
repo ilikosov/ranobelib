@@ -3,6 +3,9 @@ name: Release
 on:
   push:
     tags: ["v*"]
+  # Запуск из workflow tag-on-merge (пуш тега токеном GITHUB_TOKEN
+  # не триггерит workflow сам по себе). Запускать с ref = тег релиза.
+  workflow_dispatch:
 
 permissions:
   contents: write

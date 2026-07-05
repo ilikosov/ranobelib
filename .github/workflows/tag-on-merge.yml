@@ -1,0 +1,59 @@
+name: Tag on merge
+
+# При мерже pull request в дефолтную ветку автоматически создаёт
+# следующий semver-тег и запускает релизный workflow.
+#
+# Управление версией — лейблами на PR:
+#   release:major — поднять мажорную версию (v1.2.3 → v2.0.0)
+#   release:minor — поднять минорную версию (v1.2.3 → v1.3.0)
+#   (без лейбла)  — поднять патч (v1.2.3 → v1.2.4)
+#   no-release    — не создавать тег и релиз вовсе
+
+on:
+  pull_request:
+    types: [closed]
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  tag:
+    name: Создать тег и запустить релиз
+    if: >-
+      github.event.pull_request.merged == true &&
+      github.event.pull_request.base.ref == github.event.repository.default_branch &&
+      !contains(github.event.pull_request.labels.*.name, 'no-release')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Вычислить версию, создать тег, запустить релиз
+        env:
+          GH_TOKEN: ${{ github.token }}
+          LABELS: ${{ join(github.event.pull_request.labels.*.name, ' ') }}
+          MERGE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          latest=$(git tag -l 'v*' --sort=-v:refname | head -n1)
+          latest=${latest:-v0.0.0}
+          ver=${latest#v}
+          IFS=. read -r major minor patch <<< "$ver"
+          case " $LABELS " in
+            *" release:major "*) major=$((major+1)); minor=0; patch=0 ;;
+            *" release:minor "*) minor=$((minor+1)); patch=0 ;;
+            *) patch=$((patch+1)) ;;
+          esac
+          new="v${major}.${minor}.${patch}"
+          echo "Предыдущий тег: $latest → новый тег: $new"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "$new" "$MERGE_SHA" -m "Release $new (PR #$PR_NUMBER)"
+          git push origin "$new"
+
+          # Пуш тега токеном GITHUB_TOKEN не запускает workflow сам по себе
+          # (защита GitHub от рекурсии), поэтому запускаем релиз явно.
+          gh workflow run release.yml --ref "$new"
